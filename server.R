@@ -1,5 +1,5 @@
 library(shinyIncubator)
-#library(shiny)
+library(shiny)
 
 source("helpers.R")
 
@@ -92,11 +92,7 @@ shinyServer(function(input, output, session) {
         }
     })
 
-    ##output$coordinfo <- renderTable({ do.call(rbind,as.list(y.clicks)) })
-    ##output$text <- renderText({paste0(input$coords$y)})
-    ##
-    ###output$text <- renderText({paste0(length(orderData()))})
-    
+    ## read the ids from GRanges file
     ids <- readRDS("data/martIDs.rds")
     
     observe({
@@ -119,15 +115,11 @@ shinyServer(function(input, output, session) {
                     fb.order <- match(initial.df,ids$ensembl_transcript_id)
                     
                     output$metaplot <- renderPlot({
-                        #all.data.t <- metaPrepData(preppedData(),fb.order)
                         all.data.t <- preppedData()
                         all.data.t <- metaPrepData(all.data.t,floor(min(highlight.y)*nrow(all.data.t[[1]])):ceiling(max(highlight.y)*nrow(all.data.t[[1]])))
-
-                        #plot(cars)
-                        #plot(all.data.t)
                         ggplot(data=all.data.t,aes(x=x,y=y,group=Exp,colour=Exp)) +
                             geom_line() +
-                                xlab("Nuceotide position") +
+                                xlab("Position") +
                                     ylab("Coverage")
                     })
                     
@@ -142,10 +134,8 @@ shinyServer(function(input, output, session) {
             })
         }
     })
-    ##
 
-    #names(data$ROI)[orderData()]
-    
+    ## order the data based on coverage at TSS
     orderData <- reactive({
         ## Do not react on changes to input$samples
         samples <- names(covs())[match(input$samples,covs())]
@@ -161,13 +151,7 @@ shinyServer(function(input, output, session) {
             prepData(data[[input$analysisType]][samples],orderData())
         }
     })
-
-    #observe ({
-    #    if(!is.null(orderData())){
-    #        isolate({ preppedData <- prepData(data[[input$analysisType]][samples],orderData()) })
-    #    }
-    #})
-             
+    
     ## Render the TSS plots
     observe ({
         ## Do not reaction on changes of prep data
