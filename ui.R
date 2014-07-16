@@ -26,9 +26,7 @@ shinyUI(fluidPage(
                                  plotOutput('metaplot'),
                                  dataTableOutput('table')
                                  )
-            #tableOutput("hoverinfo")
                         )
-            
             )
         )
     ))

@@ -12,11 +12,6 @@ library(ggplot2)
 #ids <-getBM(attributes= c("ensembl_transcript_id","ensembl_gene_id","flybasename_gene"),filters= "ensembl_transcript_id", values=unique(names(readRDS("data/ROI.rds"))),mart)
 #saveRDS(ids,file='./data/martIDs.rds')
 
-## readDir <- function(dir) list.files(dir,"_covFeats.rds",full=TRUE)
-## To be a bit more R Kosher, I will use a for loop
-## Instead of the assign() using the envir=globalenv() parameter
-
-
 readCovs <- function(covFeats.name){
     newCovs <- covFeats.name[!sub("_cov.+","",basename(covFeats.name)) %in% ls()]
     if (length(newCovs) == 0) return()
@@ -46,12 +41,6 @@ cov2matrix <- function(views,ROI){
     return(d)
 }
 
-## orderData <- function(data){
-##     center <- ceiling(ncol(data[[1]])/2)
-##     range <- ceiling(ncol(data[[1]])*0.05)
-##     rank <- order(rowMeans(data[[1]][,(center-range):(center+range)]),decreasing=TRUE)
-##     t <- d <- lapply(data,function(d) d[rank,])
-## }
 
 orderRank <- function(data){
     center <- ceiling(ncol(data[[1]])/2)
@@ -86,13 +75,6 @@ metaPrepData <- function(d, d.t.sub) {
         Exp=rep(names(d), sapply(d,function(x) ncol(x[d.t.sub,])))
         )
 }
-
-## plotCovs <- function(d,withTSSmarker,yval){
-##     d <- orderData(d,names(d)[1])
-##     d <- lapply(d,downSample)
-##     p <- imageTSS(d,withTSSmarker,yval)
-## }
-
 
 prepData <- function(d, rank){
     #d <- orderData(d)
