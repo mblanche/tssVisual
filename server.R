@@ -56,21 +56,62 @@ shinyServer(function(input, output, session) {
             })
         }
     })
+    
+    selected <- reactive({
+        if(!is.null(y.clicks$y2)){
+            ## Grab the location of the region of interest
+            y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
+            ## Making sure that the clicks stay within the boundaries of the plot
+            if (y.vals[1] < 0) y.vals[1] <- 1e-6
+            if (y.vals[2] > 1) y.vals[2] <- 1
+            ## Grab either the original slice or the previous slice to keep zooming
+            if (is.null(ranks$slice)){
+                r <- ranks$r
+            } else {
+                r <- ranks$slice
+            }
+            ## Compute the region that need to be resize (applying a range conversion)
+            range <- sort(ceiling(length(r) * (1-y.vals)))
+            ## Sub-sesting the ranks
+            return(r[seq(range[1],range[2])])
+    
+        }
+    })
 
- 
+    ## Returning which slices is active
+    slice <- reactive({
+        if(is.null(ranks$slice)){
+            r <- ranks$r
+        } else {
+            r <- ranks$slice
+        }
+    })
+
     observe({
-        yvalue2presence <- input$coords$y
         if(!is.null(y.clicks$y2) & !is.null(selected())){
             isolate({
                 if (!is.null(y.clicks$y2)){
-
+                    y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
+                    ## Making sure that the clicks stay within the boundaries of the plot
+                    if (y.vals[1] < 0) y.vals[1] <- 1e-6
+                    if (y.vals[2] > 1) y.vals[2] <- 1
+                    ## Compute which row to keep
+                    l <- nrow(toPlot()[[1]])
+                    range <- sort(ceiling(l * (y.vals)))
+                    
                     initial.df <- names(data$ROI)[selected()]
                     fb.order <- match(initial.df,ids$ensembl_transcript_id)
+                    samples <- names(covs())[match(input$samples,covs())]
                     data.subset <- toPlot()
-
+                    #if(length(nrow(data.subset[[1]])) > 1){
+                    #y.floor <- y.vals[1]*nrow(data.subset[[1]]))
+                    y.floor <-range[1]
+                    y.ceiling <-range[2]
+                    
+                    output$text <- renderText({ paste(nrow(data.subset[[1]]),"IM HREE","floor",y.floor,"ceil",y.ceiling) })
                     output$metaplot <- renderPlot({
-                        all.data.t <- metaPrepData(data.subset)
-                        ggplot(data=all.data.t,aes(x=x,y=y,group=Exp,colour=Exp)) +
+                        data.t <- metaPrepData(data.subset,(y.floor:y.ceiling))
+                        ggplot(data=data.t,aes(x=x,y=y,group=Exp,colour=Exp)) +
                             geom_line() +
                                 xlab("Position") +
                                     ylab("Coverage")
@@ -92,35 +133,6 @@ shinyServer(function(input, output, session) {
         }
     })
 
-    selected <- reactive({
-        if(!is.null(y.clicks$y2)){
-            ## Grab the location of the region of interest
-            y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
-            ## Making sure that the clicks stay within the boundaries of the plot
-            if (y.vals[1] < 0) y.vals[1] <- 0
-            if (y.vals[2] > 1) y.vals[2] <- 1
-            ## Grab either the original slice or the previous slice to keep zooming
-            if (is.null(ranks$slice)){
-                r <- ranks$r
-            } else {
-                r <- ranks$slice
-            }
-            ## Compute the region that need to be resize (applying a range conversion)
-            range <- sort(round(length(r) * (1-y.vals)))
-            ## Sub-sesting the ranks
-            return(r[seq(range[1],range[2])])
-        }
-    })
-
-    ## Returning which slices is active
-    slice <- reactive({
-        if(is.null(ranks$slice)){
-            r <- ranks$r
-        } else {
-            r <- ranks$slice
-        }
-    })
-
     ## Acting on clicks to the zoom button
     observe({
         input$zoom
@@ -128,7 +140,7 @@ shinyServer(function(input, output, session) {
             ranks$slice <- selected()
             ## Removing the blue box
             y.clicks$y1 <- y.clicks$y2 <- NULL
-            return( slice() )
+            #return( slice() )
         })
     })
 
@@ -173,13 +185,13 @@ shinyServer(function(input, output, session) {
         ## Render a plotUI with variable width, then plot
         if (!is.null(data.plot)){
             if (is.null(y.clicks$y1)){
-                output$text <- renderText({ paste0('Click the plot to select your initial boundary region')})
+                #output$text <- renderText({ paste0('Click the plot to select your initial boundary region')})
             }
             else if (is.null(y.clicks$y2)){
-                output$text <- renderText({ paste0('Click to finish highlighting your region of interest')})
+                #output$text <- renderText({ paste0('Click to finish highlighting your region of interest')})
             }
             else {
-                output$text <- renderText({ paste0('The genes from region you have selected are now available!')})
+                #output$text <- renderText({ paste0('The genes from region you have selected are now available!')})
             }
             output$plot <- renderPlot({
                 plotCovs(toPlot(),
@@ -190,8 +202,5 @@ shinyServer(function(input, output, session) {
         }
     })
 
-    output$text2 <- renderText({paste("Visted ploting function",counter$i,paste0("time",ifelse(counter$i==0,"","s")))})
-
-    ## End of shiny server
 })    
     
