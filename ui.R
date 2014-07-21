@@ -9,6 +9,7 @@ shinyUI(fluidPage(
     sidebarLayout(
         sidebarPanel(
             helpText(h5("Display coverages around the TSS")),
+            textOutput('texthelp'),
             uiOutput("typeSelector"),
             uiOutput("markerSelector"),
             uiOutput("rangeSelector"),
@@ -30,4 +31,5 @@ shinyUI(fluidPage(
             )
         )
     ))
+
 

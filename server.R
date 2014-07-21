@@ -1,5 +1,4 @@
 library(shinyIncubator)
-#library(shiny)
 
 source("helpers.R")
 
@@ -17,6 +16,7 @@ shinyServer(function(input, output, session) {
     
     ## Maybe it makes sense to preload all the data at once...
     data <- reactiveValues()
+    ranks <- reactiveValues()
 
     ## Keep an eye on the coverages
     observe ({
@@ -25,7 +25,6 @@ shinyServer(function(input, output, session) {
                 withProgress(session, {
                     setProgress(message = "Loading coverage data, please be patient",
                                 detail = "This may take a few moments...")
-                    #readCovs(covFeats.name())
                     data$covs <- mclapply(covs(),readRDS,mc.cores=25,mc.preschedule=FALSE)
                     names(data$covs) <- sub("_cov\\.rds","",basename(covs()))
                     
@@ -41,7 +40,6 @@ shinyServer(function(input, output, session) {
             }
         }
     })
-
     
     ## Render a widget for selecting the sample to display
      observe ({
@@ -71,7 +69,11 @@ shinyServer(function(input, output, session) {
              })
              ## The computation is quite extensive, plot on click only...
              output$plotButton <- renderUI({
-                 actionButton("goButton","Plot coverages")
+                 list(
+                     actionButton("goButton","Plot coverages", icon = icon("bar-chart-o")),
+                     p(),
+                     actionButton('zoom','Zoom',icon=icon('search-plus')),
+                     actionButton('reset','Reset',icon=icon('refresh')))
              })
          }
      })
@@ -94,29 +96,19 @@ shinyServer(function(input, output, session) {
 
     ## read the ids from GRanges file
     ids <- readRDS("data/martIDs.rds")
-    
+ 
     observe({
         yvalue2presence <- input$coords$y
-        if (!is.null(yvalue2presence)){
+        if(!is.null(y.clicks$y2) & !is.null(selected())){
             isolate({
                 if (!is.null(y.clicks$y2)){
-                    
-                    highlight.y <- c(y.clicks$y1,y.clicks$y2)
-                    highlight.y[which(highlight.y > 1)] <- 1
-                    highlight.y[which(highlight.y < 0)] <- 0
-                    highlight.max <- abs(1-min(highlight.y))
-                    highlight.min <- abs(1-max(highlight.y))
 
-                    #orderData <- names(readRDS("data/ROI.rds"))[orderRank((data[[input$analysisType]][samples[1]]))]
-                    
-                    num.genes <- as.numeric(length(names(data$ROI)[orderData()]))
-
-                    initial.df <- names(data$ROI)[orderData()][floor(highlight.min*num.genes):ceiling(highlight.max*num.genes)]
+                    initial.df <- names(data$ROI)[selected()]
                     fb.order <- match(initial.df,ids$ensembl_transcript_id)
-                    
+                    data.subset <- toPlot()
+
                     output$metaplot <- renderPlot({
-                        all.data.t <- preppedData()
-                        all.data.t <- metaPrepData(all.data.t,floor(min(highlight.y)*nrow(all.data.t[[1]])):ceiling(max(highlight.y)*nrow(all.data.t[[1]])))
+                        all.data.t <- metaPrepData(data.subset)
                         ggplot(data=all.data.t,aes(x=x,y=y,group=Exp,colour=Exp)) +
                             geom_line() +
                                 xlab("Position") +
@@ -133,33 +125,88 @@ shinyServer(function(input, output, session) {
                 }
             })
         }
-    })
-
-    ## order the data based on coverage at TSS
-    orderData <- reactive({
-        ## Do not react on changes to input$samples
-        samples <- names(covs())[match(input$samples,covs())]
-        if (length(samples) != 0){
-            orderRank((data[[input$analysisType]][samples[1]]))
+        else {
+            output$table <- renderDataTable({ NULL })
+            output$metaplot <- renderPlot({ NULL })
         }
     })
 
-    preppedData <- reactive({
-        ## Do not react on changes to input$samples
-        samples <- names(covs())[match(input$samples,covs())]
-        if (length(samples) != 0){
-            prepData(data[[input$analysisType]][samples],orderData())
+    selected <- reactive({
+        if(!is.null(y.clicks$y2)){
+            ## Grab the location of the region of interest
+            y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
+            ## Making sure that the clicks stay within the boundaries of the plot
+            if (y.vals[1] < 0) y.vals[1] <- 0
+            if (y.vals[2] > 1) y.vals[2] <- 1
+            ## Grab either the original slice or the previous slice to keep zooming
+            if (is.null(ranks$slice)){
+                r <- ranks$r
+            } else {
+                r <- ranks$slice
+            }
+            ## Compute the region that need to be resize (applying a range conversion)
+            range <- sort(round(length(r) * (1-y.vals)))
+            ## Sub-sesting the ranks
+            return(r[seq(range[1],range[2])])
         }
+    })
+
+    ## Returning which slices is active
+    slice <- reactive({
+        if(is.null(ranks$slice)){
+            r <- ranks$r
+        } else {
+            r <- ranks$slice
+        }
+    })
+
+    ## Acting on clicks to the zoom button
+    observe({
+        input$zoom
+        isolate({
+            ranks$slice <- selected()
+            ## Removing the blue box
+            y.clicks$y1 <- y.clicks$y2 <- NULL
+            return( slice() )
+        })
+    })
+
+    ## Acting on clicks to the reset button
+    observe({
+        input$reset
+        isolate({
+            ranks$slice <- NULL
+            y.clicks$y1 <- y.clicks$y2 <- NULL
+        })
     })
     
+    ## Preparing the data needing to be ploted
+    toPlot <- reactive({
+        samples <- names(covs())[match(input$samples,covs())]
+        if (length(samples) != 0){
+            d <- lapply(data[[input$analysisType]][samples],function(d) d[slice(),])
+            d <- lapply(d,downSample)
+        }
+    })
+
+    observe ({
+        ## Do not react on changes to input$samples
+        samples <- names(covs())[match(input$samples,covs())]
+        if (length(samples) != 0){
+            ranks$r <- orderRank((data[[input$analysisType]][samples[1]]))
+        }
+    })
+
     ## Render the TSS plots
     observe ({
         ## Do not reaction on changes of prep data
-        isolate({ data <- preppedData() })
+        isolate({
+            data.plot <- toPlot()
+        })
         ## Recompute on clicks
         input$goButton
         ## Render a plotUI with variable width, then plot
-        if (!is.null(data)){
+        if (!is.null(data.plot)){
             #isolate({
             if (is.null(y.clicks$y1)){
                 output$text <- renderText({ paste0('Click the plot to select your initial boundary region')})
@@ -170,13 +217,14 @@ shinyServer(function(input, output, session) {
             else {
                 output$text <- renderText({ paste0('The genes from region you have selected are now available!')})
             }
-            #})
-            
+
+            samples <- names(covs())[match(input$samples,covs())]
+      
             output$plot <- renderPlot({
-                plotCovs(data,
+                plotCovs(toPlot(),
                          input$addTSSmarker,
-                         yval=c(y.clicks$y1,y.clicks$y2))
-                                      
+                         yval=c(y.clicks$y1,y.clicks$y2)
+                         )                                     
             })
         }
     })

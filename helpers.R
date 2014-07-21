@@ -68,19 +68,23 @@ downSample <- function(d) {
 }
 
 
-metaPrepData <- function(d, d.t.sub) {
+subData <- function(d,d.t.sub) {
+    d <- lapply(d,function(x) x[d.t.sub,])
+}
+
+
+metaPrepData <- function(d) {
     d <- data.frame(
         x= as.vector(sapply(d,function(x) 1:ncol(x))),
-        y= as.vector(sapply(d, function(x) colMeans(x[d.t.sub,]))),
-        Exp=rep(names(d), sapply(d,function(x) ncol(x[d.t.sub,])))
+        y= as.vector(sapply(d, function(x) colMeans(x))),
+        Exp=rep(names(d), sapply(d,function(x) ncol(x)))
         )
 }
 
-prepData <- function(d, rank){
-    #d <- orderData(d)
-    d <- lapply(d,function(d.t) d.t[rank,])
-    d <- lapply(d,downSample)
-}
+## prepData <- function(d, rank){
+##     d <- lapply(d,function(d.t) d.t[rank,])
+##     d <- lapply(d,downSample)
+## }
 
 plotCovs <- function(d,withTSSmarker=TRUE,yval=NULL) {
     cols <- colorRampPalette(c('black','yellow'))(256)
@@ -118,7 +122,6 @@ plotCovs <- function(d,withTSSmarker=TRUE,yval=NULL) {
             abline(v=0.5,col='red',lwd=1.5,lty=2)
     }
 }
-
 
 imageTSS <- function(d,withTSSmarker=TRUE,yval) {
   
