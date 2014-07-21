@@ -73,7 +73,8 @@ subData <- function(d,d.t.sub) {
 }
 
 
-metaPrepData <- function(d) {
+metaPrepData <- function(d,d.t.sub) {
+    d <- lapply(d,function(x) x[d.t.sub,,drop=FALSE])
     d <- data.frame(
         x= as.vector(sapply(d,function(x) 1:ncol(x))),
         y= as.vector(sapply(d, function(x) colMeans(x))),
