@@ -1,83 +1,46 @@
 library(shinyIncubator)
 
+#
 source("helpers.R")
+source("dataLoader.R")
 
 shinyServer(function(input, output, session) {
-
-    ## Assign a reactive in function of the user email address
-    ## Then have a selction of data dir from the db of analysis
-    dir <- 'data/cov'
-
-    ## Get the names of the data files
-    covs <- reactive({
-        files <- list.files(dir,"_cov\\.rds$",full=TRUE)
-        structure(files,names=sub("_cov.+","",basename(files)))
-    })
-    
-    ## Maybe it makes sense to preload all the data at once...
-    data <- reactiveValues()
+    ## Create a reactive that will keep tracks of ranks
     ranks <- reactiveValues()
 
-    ## Keep an eye on the coverages
-    observe ({
-        if(!is.null(covs())){
-            if(length(covs()) != 0){
-                withProgress(session, {
-                    setProgress(message = "Loading coverage data, please be patient",
-                                detail = "This may take a few moments...")
-                    data$covs <- mclapply(covs(),readRDS,mc.cores=25,mc.preschedule=FALSE)
-                    names(data$covs) <- sub("_cov\\.rds","",basename(covs()))
-                    
-                    data$ROI <- readRDS("data/ROI.rds")
+    ## Triger evaluation of a reactive associated with teh data
+    ## We will monitor the trigger
 
-                    data$views <- mclapply(data$covs,function(cov){
-                        Views(cov,as(data$ROI,'RangesList')[names(cov)])
-                    },mc.preschedule=FALSE,mc.cores=25)
-                    
-                    data$Absolute <- cov2matrix(data$views,data$ROI)
-                    data$Relative <- doRelative(data$Absolute)
-                })
-            }
-        }
-    })
     
     ## Render a widget for selecting the sample to display
-     observe ({
-         if (!is.null(covs())){
-             ## Render the abolute vs relative radio
-             output$typeSelector <- renderUI({
-                 radioButtons('analysisType','Select Coverage Type',c('Relative','Absolute'))
-             })
-             output$markerSelector <- renderUI({
-                 checkboxInput('addTSSmarker','Display the TSS marker',TRUE)
-             })
-             
-             ## output$rangeSelector <- renderUI({
-             ##     sliderInput("range", "Region around features to display coverages:",
-             ##                 min = -500, max = 500, value = c(-500,500),
-             ##                 step=50,ticks=TRUE)
-             ## })
-             
-             ## Render the sample selector
-             output$sampleSelector <- renderUI({
-                 samples <- covs()
-                 selectInput("samples",
-                             "Choose sample(s) that will be added to the plot.\n
+    observe ({
+        ## Render the abolute vs relative radio
+        output$typeSelector <- renderUI({
+            radioButtons('analysisType','Select Coverage Type',c('Relative','Absolute'))
+        })
+        output$markerSelector <- renderUI({
+            checkboxInput('addTSSmarker','Display the TSS marker',TRUE)
+        })
+        ## Render the sample selector
+        output$sampleSelector <- renderUI({
+                                        #samples <- covs()
+            samples <- covs
+            selectInput("samples",
+                        "Choose sample(s) that will be added to the plot.\n
                               The first one in the list will be used to order the plot.",
-                             samples,
-                             multiple=TRUE)
-             })
-             ## The computation is quite extensive, plot on click only...
-             output$plotButton <- renderUI({
-                 list(
-                     actionButton("goButton","Plot coverages", icon = icon("bar-chart-o")),
-                     p(),
-                     actionButton('zoom','Zoom',icon=icon('search-plus')),
-                     actionButton('reset','Reset',icon=icon('refresh')))
-             })
-         }
-     })
-
+                        samples,
+                         multiple=TRUE)
+        })
+        ## The computation is quite extensive, plot on click only...
+            output$plotButton <- renderUI({
+                list(
+                    actionButton("goButton","Plot coverages", icon = icon("bar-chart-o")),
+                    p(),
+                    actionButton('zoom','Zoom',icon=icon('search-plus')),
+                    actionButton('reset','Reset',icon=icon('refresh')))
+            })
+        })
+        
     ## Register the yclicks for region selection
     y.clicks <- reactiveValues(y1=NULL,y2=NULL)
     observe({
@@ -94,8 +57,6 @@ shinyServer(function(input, output, session) {
         }
     })
 
-    ## read the ids from GRanges file
-    ids <- readRDS("data/martIDs.rds")
  
     observe({
         yvalue2presence <- input$coords$y
@@ -182,7 +143,8 @@ shinyServer(function(input, output, session) {
     
     ## Preparing the data needing to be ploted
     toPlot <- reactive({
-        samples <- names(covs())[match(input$samples,covs())]
+        #samples <- names(covs())[match(input$samples,covs())]
+        samples <- names(covs)[match(input$samples,covs)]
         if (length(samples) != 0){
             d <- lapply(data[[input$analysisType]][samples],function(d) d[slice(),])
             d <- lapply(d,downSample)
@@ -191,23 +153,25 @@ shinyServer(function(input, output, session) {
 
     observe ({
         ## Do not react on changes to input$samples
-        samples <- names(covs())[match(input$samples,covs())]
+        ##samples <- names(covs())[match(input$samples,covs())]
+        samples <- names(covs)[match(input$samples,covs)]
         if (length(samples) != 0){
             ranks$r <- orderRank((data[[input$analysisType]][samples[1]]))
         }
     })
 
+    counter <- reactiveValues(i=0)
     ## Render the TSS plots
     observe ({
         ## Do not reaction on changes of prep data
         isolate({
+            counter$i <- counter$i + 1
             data.plot <- toPlot()
         })
         ## Recompute on clicks
         input$goButton
         ## Render a plotUI with variable width, then plot
         if (!is.null(data.plot)){
-            #isolate({
             if (is.null(y.clicks$y1)){
                 output$text <- renderText({ paste0('Click the plot to select your initial boundary region')})
             }
@@ -217,9 +181,6 @@ shinyServer(function(input, output, session) {
             else {
                 output$text <- renderText({ paste0('The genes from region you have selected are now available!')})
             }
-
-            samples <- names(covs())[match(input$samples,covs())]
-      
             output$plot <- renderPlot({
                 plotCovs(toPlot(),
                          input$addTSSmarker,
@@ -228,4 +189,9 @@ shinyServer(function(input, output, session) {
             })
         }
     })
-})
+
+    output$text2 <- renderText({paste("Visted ploting function",counter$i,paste0("time",ifelse(counter$i==0,"","s")))})
+
+    ## End of shiny server
+})    
+    

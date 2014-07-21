@@ -3,15 +3,10 @@ library(GenomicRanges)
 #library(biomaRt)
 library(ggplot2)
 
-##################################################
-## load the data
-##################################################
 
-#mart <- useMart("ensembl", dataset="dmelanogaster_gene_ensembl")
-#roi <- data$ROI
-#ids <-getBM(attributes= c("ensembl_transcript_id","ensembl_gene_id","flybasename_gene"),filters= "ensembl_transcript_id", values=unique(names(readRDS("data/ROI.rds"))),mart)
-#saveRDS(ids,file='./data/martIDs.rds')
-
+##################################################
+## Heler functions
+##################################################
 readCovs <- function(covFeats.name){
     newCovs <- covFeats.name[!sub("_cov.+","",basename(covFeats.name)) %in% ls()]
     if (length(newCovs) == 0) return()
