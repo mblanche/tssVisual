@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+library(shinyIncubator)
+>>>>>>> parent of e2ae632... Fixed commit
 library(shiny)
 
 source("helpers.R")
