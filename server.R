@@ -9,7 +9,6 @@ shinyServer(function(input, output, session) {
     
     ## Render a widget for selecting the sample to display
     observe ({
-        
         output$selectors <- renderUI({
             list(
                 hr(),
@@ -52,6 +51,7 @@ shinyServer(function(input, output, session) {
 
     ## Figure out the rows from the original data that makes the selection
     selected <- reactive({
+        ## make sure we react only when both clicks are registerd
         if(!is.null(y.clicks$y2)){
             ## Grab the location of the region of interest
             y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
@@ -85,7 +85,8 @@ shinyServer(function(input, output, session) {
     ## Rendering the content of the Gene Table panel
     ## I think this block as to be looked over to make sure we don't process it for no good reason...
     observe({
-        if(!is.null(y.clicks$y2) & !is.null(selected())){
+        #& !is.null(selected())
+        if(!is.null(y.clicks$y2)){
             ## Ok, I have a selection, I will render a UI to create a plot and a dataTable
             output$selectedGenes <- renderUI({
                 list(plotOutput('metaplot'),
@@ -100,7 +101,7 @@ shinyServer(function(input, output, session) {
 
                 ## Compute which row to keep
                 range <- ceiling(nrow(toPlot()[[1]]) * y.vals)
-                
+
                 ## Massage the data for ggplot
                 d.f <- data.frame(x=unlist(lapply(toPlot(),function(x) seq(ncol(x)))),
                                   y=unlist(lapply(toPlot(),function(d) colMeans(d[range[1]:range[2],,drop=FALSE]))),
@@ -135,7 +136,6 @@ shinyServer(function(input, output, session) {
             ranks$slice <- selected()
             ## Removing the blue box
             y.clicks$y1 <- y.clicks$y2 <- NULL
-            #return( slice() )
         })
     })
     
@@ -173,27 +173,25 @@ shinyServer(function(input, output, session) {
         }
     })
 
-    counter <- reactiveValues(i=0)
     ## Render the TSS plots
     observe ({
-        ## Do not reaction on changes of prep data
+        ## Do not react on changes of prep data
         isolate({
-            counter$i <- counter$i + 1
             data.plot <- toPlot()
         })
         ## Recompute on clicks
         input$goButton
         ## Render a plotUI with variable width, then plot
         if (!is.null(data.plot)){
-            if (is.null(y.clicks$y1)){
-                #output$text <- renderText({ paste0('Click the plot to select your initial boundary region')})
-            }
-            else if (is.null(y.clicks$y2)){
-                #output$text <- renderText({ paste0('Click to finish highlighting your region of interest')})
-            }
-            else {
-                #output$text <- renderText({ paste0('The genes from region you have selected are now available!')})
-            }
+            ##     if (is.null(y.clicks$y1)){
+            ##         #output$text <- renderText({ paste0('Click the plot to select your initial boundary region')})
+            ##     }
+            ##     else if (is.null(y.clicks$y2)){
+            ##         #output$text <- renderText({ paste0('Click to finish highlighting your region of interest')})
+            ##     }
+            ##     else {
+            ##         #output$text <- renderText({ paste0('The genes from region you have selected are now available!')})
+            ##     }
             output$plot <- renderPlot({
                 plotCovs(toPlot(),
                          input$addTSSmarker,
