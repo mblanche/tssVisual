@@ -162,9 +162,11 @@ shinyServer(function(input, output, session) {
         if (length(samples) != 0){
             d <- lapply(data[[input$analysisType]][samples],function(d) d[slice(),,drop=FALSE])
             d <- lapply(d,downSample)
+        } else {
+            return(NULL)
         }
     })
-
+    
     observe ({
         ## Do not react on changes to input$samples
         samples <- names(covs)[match(input$samples,covs)]
@@ -177,28 +179,48 @@ shinyServer(function(input, output, session) {
     observe ({
         ## Do not react on changes of prep data
         isolate({
-            data.plot <- toPlot()
         })
         ## Recompute on clicks
         input$goButton
         ## Render a plotUI with variable width, then plot
-        if (!is.null(data.plot)){
-            ##     if (is.null(y.clicks$y1)){
-            ##         #output$text <- renderText({ paste0('Click the plot to select your initial boundary region')})
-            ##     }
-            ##     else if (is.null(y.clicks$y2)){
-            ##         #output$text <- renderText({ paste0('Click to finish highlighting your region of interest')})
-            ##     }
-            ##     else {
-            ##         #output$text <- renderText({ paste0('The genes from region you have selected are now available!')})
-            ##     }
-            output$plot <- renderPlot({
-                plotCovs(toPlot(),
+        isolate({
+            if (!is.null( toPlot() )){
+                ## Got data to plot, render the plotting UI
+                output$plotRegion <- renderUI(list(
+                textOutput('text2'),
+                    h5(textOutput('text')),
+                    plotOutput('plot',clickId="coords",height='800px')
+                    ))
+                ## Render the plot
+                output$plot <- renderPlot({
+                    plotCovs(toPlot(),
                          input$addTSSmarker,
-                         yval=c(y.clicks$y1,y.clicks$y2)
-                         )                                     
-            })
+                             yval=c(y.clicks$y1,y.clicks$y2)
+                             )
+                    
+                })
+            }
+        })
+    })
+
+    ## Create a reactive content to display
+    ## Ben's messages on what to do with the clicks act on
+    observe({
+        if (is.null(y.clicks$y1)){
+            output$text <- renderText('Click the plot to select your initial boundary region')
         }
+        else if (is.null(y.clicks$y2)){
+            output$text <- renderText('Click to finish highlighting your region of interest')
+        }
+        else {
+            output$text <- renderText('The genes from region you have selected are now available!')
+        }
+    })
+    
+    ## Create a reactive context to whipe out the ploting region when there is noghing to plot
+    observe({
+        if(is.null(toPlot()))
+            output$plotRegion <- renderUI(return(NULL))
     })
 
 })    
