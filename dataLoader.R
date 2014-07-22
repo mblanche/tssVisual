@@ -8,7 +8,7 @@ source("helpers.R")
 ##################################################
 ROIfiles <- list.files('data','_ROI.rds$',full=TRUE)
 ROIs <- lapply(ROIfiles,readRDS)
-names(ROIs) <- sub('_ROI.rds$',"",ROIfiles)
+names(ROIs) <- sub('_ROI.rds$',"",basename(ROIfiles))
 
 ##################################################
 ## Read in the coverage files (RleLists of coverages)
@@ -17,9 +17,9 @@ dir <- 'data/cov'
 files <- list.files(dir,"_cov\\.rds$",full=TRUE)
 covs <- structure(files,names=sub("_cov.+","",basename(files)))
 
-data <- list()
-data$covs <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
-names(data$covs) <- sub("_cov\\.rds","",basename(covs))
+
+cov.data <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
+names(cov.data) <- sub("_cov\\.rds","",basename(covs))
 
 
 ##################################################

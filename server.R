@@ -10,10 +10,16 @@ shinyServer(function(input, output, session) {
 
     ROI <- reactive({
         if (length(ROIs) > 1){
-            output$ROIselector <- renderUI({
-                radioButtons('ROI','Select you Regions of Interest',names(ROIs))
-            })
-            return(ROIs[[input$ROI]])
+            output$ROIselector <- renderUI({list(
+                radioButtons('ROI','Select you Regions of Interest',names(ROIs),names(ROIs)[1]),
+                hr()
+                )
+                                        })
+            if(!is.null(input$ROI)){
+                return(ROIs[[input$ROI]])
+            } else {
+                return(NULL)
+            }
         } else {
             return(ROIs[[1]])
         }
@@ -21,13 +27,16 @@ shinyServer(function(input, output, session) {
 
     ## Create a reactive context to handle evaluation of ROI
     ## Also, add an invisible div() that will stop the spinning wheel
-    observe({
-        data$ROI <- ROI()
-        data$views <- mclapply(data$covs,function(cov){
-            Views(cov,as(data$ROI,'RangesList')[names(cov)])
-        },mc.preschedule=FALSE,mc.cores=25)
-        data$Absolute <- cov2matrix(data$views,data$ROI)
-        data$Relative <- doRelative(data$Absolute)
+    data <- reactive({
+        if (!is.null( ROI() )){
+            data <- list(covs=cov.data,ROI=ROI())
+            data$views <- mclapply(data$covs,function(cov){
+                Views(cov,as(data$ROI,'RangesList')[names(cov)])
+            },mc.preschedule=FALSE,mc.cores=25)
+            data$Absolute <- cov2matrix(data$views,data$ROI)
+            data$Relative <- doRelative(data$Absolute)
+            return(data)
+        }
     })
     
     ## Render a widget for selecting the sample to display
@@ -38,7 +47,7 @@ shinyServer(function(input, output, session) {
                 ## Render the abolute vs relative radio
                 radioButtons('analysisType','Select Coverage Type',c('Relative','Absolute')),
                 ## Render a button to add/remove TSS marker
-                checkboxInput('addCenterMarker','Display the TSS marker',TRUE),
+                checkboxInput('addCenterMarker','Display Center Marker',TRUE),
                 hr(),
                 ## Add an uiOutput do dynamicaly display ROI files if more than one
                 uiOutput('ROIselector'),
@@ -139,7 +148,7 @@ shinyServer(function(input, output, session) {
                     print(p)
                 })
                 
-                initial.df <- names(data$ROI)[selected()]
+                initial.df <- names(data()[['ROI']])[selected()]
                 fb.order <- match(initial.df,ids$ensembl_transcript_id)
                                 
                 output$table <- renderDataTable({
@@ -162,7 +171,7 @@ shinyServer(function(input, output, session) {
         ## Do not react on changes to input$samples
         samples <- names(covs)[match(input$samples,covs)]
         if (length(samples) != 0){
-            ranks$r <- orderRank((data[[input$analysisType]][samples[1]]))
+            ranks$r <- orderRank((data()[[input$analysisType]][samples[1]]))
         }
     })
     
@@ -198,7 +207,7 @@ shinyServer(function(input, output, session) {
     toPlot <- reactive({
         samples <- names(covs)[match(input$samples,covs)]
         if (length(samples) != 0){
-            d <- lapply(data[[input$analysisType]][samples],function(d) d[slice(),,drop=FALSE])
+            d <- lapply(data()[[input$analysisType]][samples],function(d) d[slice(),,drop=FALSE])
             d <- lapply(d,downSample)
         } else {
             return(NULL)
