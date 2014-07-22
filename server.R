@@ -119,9 +119,10 @@ shinyServer(function(input, output, session) {
                 IGV.links <- paste0("<a href=\"",pull_coords(initial.df,data$ROI),"\">Link</a>")
                 output$table <- renderDataTable({
                     data.frame(Name=initial.df,
-                               'Gene ID'=sapply(ids$ensembl_gene_id[fb.order],function(x) paste0("<a href=\"",linkOut,x,".html\">",x,"</a>")),
-                               'Gene Symbol'=ids$flybasename_gene[fb.order],
-                               'IGV'=IGV.links)
+                               'Gene Symbol'=sapply(fb.order,function(x) paste0("<a href=\"",linkOut,ids$ensembl_gene_id[x],".html\">",ids$flybasename_gene[x],"</a>")),
+                               'Transcript Symbol'=ids$external_transcript_id[fb.order],
+                               'IGV'=IGV.links,
+                               'Description'=ids$description[fb.order])
                 }, options = list(iDisplayLength = 10))
                 
             })
