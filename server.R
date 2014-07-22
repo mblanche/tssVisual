@@ -1,4 +1,4 @@
-library(shinyIncubator)
+library(shiny)
 
 source("helpers.R")
 source("dataLoader.R")
@@ -9,26 +9,22 @@ shinyServer(function(input, output, session) {
     
     ## Render a widget for selecting the sample to display
     observe ({
-        ## Render the abolute vs relative radio
-        output$typeSelector <- renderUI({
-            radioButtons('analysisType','Select Coverage Type',c('Relative','Absolute'))
-        })
-        output$markerSelector <- renderUI({
-            checkboxInput('addTSSmarker','Display the TSS marker',TRUE)
-        })
-        ## Render the sample selector
-        output$sampleSelector <- renderUI({
-                                        #samples <- covs
-            samples <- covs
-            selectInput("samples",
-                        "Choose sample(s) that will be added to the plot.\n
-                              The first one in the list will be used to order the plot.",
-                        samples,
-                         multiple=TRUE)
-        })
-        ## The computation is quite extensive, plot on click only...
-        output$plotButton <- renderUI({
+        
+        output$selectors <- renderUI({
             list(
+                hr(),
+                ## Render the abolute vs relative radio
+                radioButtons('analysisType','Select Coverage Type',c('Relative','Absolute')),
+                ## Render a button to add/remove TSS marker
+                checkboxInput('addTSSmarker','Display the TSS marker',TRUE),
+                hr(),
+                ## Render the sample selector
+                selectInput("samples",
+                            "Choose sample(s) that will be added to the plot.\n
+                              The first one in the list will be used to order the plot.",
+                            covs,
+                            multiple=TRUE),
+                ## The computation is quite extensive, plot on click only...
                 actionButton("goButton","Plot coverages", icon = icon("bar-chart-o")),
                 p(),
                 actionButton('zoom','Zoom',icon=icon('search-plus')),
@@ -53,13 +49,14 @@ shinyServer(function(input, output, session) {
             })
         }
     })
-    
+
+    ## Figure out the rows from the original data that makes the selection
     selected <- reactive({
         if(!is.null(y.clicks$y2)){
             ## Grab the location of the region of interest
             y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
             ## Making sure that the clicks stay within the boundaries of the plot
-            if (y.vals[1] < 0) y.vals[1] <- 0
+            if (y.vals[1] < 0) y.vals[1] <- 1e-6
             if (y.vals[2] > 1) y.vals[2] <- 1
             ## Grab either the original slice or the previous slice to keep zooming
             if (is.null(ranks$slice)){
@@ -69,7 +66,6 @@ shinyServer(function(input, output, session) {
             }
             ## Compute the region that need to be resize (applying a range conversion)
             range <- sort(ceiling(length(r) * (1-y.vals)))
-            range[range==0] <- 1 ## if y.vals[1] == 0, set the range to 1
             ## Sub-sesting the ranks
             return(r[seq(range[1],range[2])])
         } else {
@@ -85,9 +81,11 @@ shinyServer(function(input, output, session) {
             r <- ranks$slice
         }
     })
-    
+
+    ## Rendering the content of the Gene Table panel
+    ## I think this block as to be looked over to make sure we don't process it for no good reason...
     observe({
-        if(!is.null(selected())){
+        if(!is.null(y.clicks$y2) & !is.null(selected())){
             ## Ok, I have a selection, I will render a UI to create a plot and a dataTable
             output$selectedGenes <- renderUI({
                 list(plotOutput('metaplot'),
@@ -97,13 +95,12 @@ shinyServer(function(input, output, session) {
             isolate({
                 y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
                 ## Making sure that the clicks stay within the boundaries of the plot
-                if (y.vals[1] < 0) y.vals[1] <- 0
+                if (y.vals[1] < 0) y.vals[1] <- 1e-6
                 if (y.vals[2] > 1) y.vals[2] <- 1
-                ## Compute which row to keep
-                l <- nrow(toPlot()[[1]])
-                range <- sort(ceiling(l * (y.vals)))
-                range[range == 0] <- 1 ## if y.vals is 0, set the row to 1
 
+                ## Compute which row to keep
+                range <- ceiling(nrow(toPlot()[[1]]) * y.vals)
+                
                 ## Massage the data for ggplot
                 d.f <- data.frame(x=unlist(lapply(toPlot(),function(x) seq(ncol(x)))),
                                   y=unlist(lapply(toPlot(),function(d) colMeans(d[range[1]:range[2],,drop=FALSE]))),
@@ -115,17 +112,6 @@ shinyServer(function(input, output, session) {
                     p <- p+geom_line()+labs(x="Position",y="Coverage")
                     print(p)
                 })
-                
-                ## initial.df <- names(data$ROI)[selected()]
-                ## fb.order <- match(initial.df,ids$ensembl_transcript_id)
-                ## samples <- names(covs)[match(input$samples,covs)]
-                ## data.subset <- toPlot()
-                ##                         #if(length(nrow(data.subset[[1]])) > 1){
-                ##                         #y.floor <- y.vals[1]*nrow(data.subset[[1]]))
-                ## y.floor <-range[1]
-                ## y.ceiling <-range[2]
-
-                ##output$text <- renderText({ paste(nrow(data.subset[[1]]),"IM HREE","floor",y.floor,"ceil",y.ceiling) })
                 
                 initial.df <- names(data$ROI)[selected()]
                 fb.order <- match(initial.df,ids$ensembl_transcript_id)
@@ -172,7 +158,6 @@ shinyServer(function(input, output, session) {
     
     ## Preparing the data needing to be ploted
     toPlot <- reactive({
-        #samples <- names(covs)[match(input$samples,covs)]
         samples <- names(covs)[match(input$samples,covs)]
         if (length(samples) != 0){
             d <- lapply(data[[input$analysisType]][samples],function(d) d[slice(),,drop=FALSE])

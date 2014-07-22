@@ -1,4 +1,4 @@
-library(shinyIncubator)
+#library(shinyIncubator)
 library(shiny)
 
 ## ui.R
@@ -9,19 +9,11 @@ shinyUI(fluidPage(
             tags$script(type="text/javascript", src = "busy.js")
             )
         ),
-    progressInit(),
     titlePanel("TSS Visualizer"),
-    
     sidebarLayout(
         sidebarPanel(
             helpText(h5("Display coverages around the TSS")),
-            textOutput('texthelp'),
-            uiOutput("typeSelector"),
-            uiOutput("markerSelector"),
-            uiOutput("rangeSelector"),
-            hr(),
-            uiOutput("sampleSelector"),
-            uiOutput("plotButton")
+            uiOutput("selectors")
             ),
         mainPanel(
             div(class="test",
