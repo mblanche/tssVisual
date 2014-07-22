@@ -26,7 +26,7 @@ shinyUI(fluidPage(
         mainPanel(
             div(class="test",
                 id="dataLoader",
-                p("Loading the data, this may take a while"),
+                h5("Loading the data, this may take a while"),
                 p("Be patient..."),
                 img(src="ajax-loader.gif")
                 ),
@@ -41,8 +41,7 @@ shinyUI(fluidPage(
                                  textOutput('text'),
                                  plotOutput('plot',clickId="coords",height='800px')),
                         tabPanel("Gene Table",
-                                 plotOutput('metaplot'),
-                                 dataTableOutput('table')
+                                 uiOutput('selectedGenes')
                                  )
                         )
             )
