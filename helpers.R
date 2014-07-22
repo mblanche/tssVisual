@@ -3,15 +3,10 @@ library(GenomicRanges)
 #library(biomaRt)
 library(ggplot2)
 
-##################################################
-## load the data
-##################################################
 
-#mart <- useMart("ensembl", dataset="dmelanogaster_gene_ensembl")
-#roi <- data$ROI
-#ids <-getBM(attributes= c("ensembl_transcript_id","ensembl_gene_id","flybasename_gene"),filters= "ensembl_transcript_id", values=unique(names(readRDS("data/ROI.rds"))),mart)
-#saveRDS(ids,file='./data/martIDs.rds')
-
+##################################################
+## Heler functions
+##################################################
 readCovs <- function(covFeats.name){
     newCovs <- covFeats.name[!sub("_cov.+","",basename(covFeats.name)) %in% ls()]
     if (length(newCovs) == 0) return()
@@ -53,20 +48,28 @@ doRelative <- function(data) {
 }
 
 downSample <- function(d) {
-    ## Downsampling the rows
-    breaks <- cut(1:nrow(d),400,labels=FALSE)
-    d <- t(sapply(split(d,breaks),function(t){
-        colMeans(matrix(t,ncol=ncol(d)))
-    }))
-    ## Downsampling the columns
-    breaks <- cut(1:ncol(d),200,labels=FALSE)
-    d <- sapply(split(t(d),breaks),function(t){
-        rowMeans(matrix(t,nrow=nrow(d),byrow=TRUE))
-    })
-        ## the 0,0 is bottom left, I want to print from top left, reverse the rows
-    d <- d[nrow(d):1,]
+    ## If there is more than 400 row, downsample
+    if (nrow(d) > 400){
+        breaks <- cut(1:nrow(d),400,labels=FALSE)
+        d <- t(sapply(split(d,breaks),function(t){
+            colMeans(matrix(t,ncol=ncol(d)))
+        }))
+    }
+    ## Downsampling the columns, there should always be more than 200???
+    if (ncol(d) > 200){
+        breaks <- cut(1:ncol(d),200,labels=FALSE)
+        d <- sapply(split(t(d),breaks),function(t){
+            ## Make sure we are returning a matrix (I case we only have one gene...
+            rowMeans(matrix(t,nrow=nrow(d),byrow=TRUE))
+        })
+    }
+    ## We have the special case of having only one gene selected, which is now
+    ## A vector from the previous step, return a matrix
+    if(class(d) != 'matrix') d <- matrix(d,ncol=length(d))
+        
+    ## the 0,0 is bottom left, I want to print from top left, reverse the rows
+    d <- d[nrow(d):1,,drop=FALSE]
 }
-
 
 subData <- function(d,d.t.sub) {
     d <- lapply(d,function(x) x[d.t.sub,])
