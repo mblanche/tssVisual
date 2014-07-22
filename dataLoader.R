@@ -7,6 +7,9 @@ dir <- 'data/cov'
 files <- list.files(dir,"_cov\\.rds$",full=TRUE)
 covs <- structure(files,names=sub("_cov.+","",basename(files)))
 
+## Set website for gene-id repository
+linkOut <- 'http://flybase.org/reports/'
+
 data <- list()
 data$covs <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
 

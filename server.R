@@ -27,7 +27,7 @@ shinyServer(function(input, output, session) {
                 actionButton("goButton","Plot coverages", icon = icon("bar-chart-o")),
                 p(),
                 actionButton('zoom','Zoom',icon=icon('search-plus')),
-                actionButton('resetZoom','Reset Zoom',icon=icon('refresh')),
+                actionButton('resetZoom','Reset Zoom',icon=icon('power-off')),
                 actionButton('resetMarker','Reset Marker',icon=icon('refresh'))
                 )
         })
@@ -116,11 +116,12 @@ shinyServer(function(input, output, session) {
                 
                 initial.df <- names(data$ROI)[selected()]
                 fb.order <- match(initial.df,ids$ensembl_transcript_id)
-                                
+                IGV.links <- paste0("<a href=\"",pull_coords(initial.df,data$ROI),"\">Link</a>")
                 output$table <- renderDataTable({
                     data.frame(Name=initial.df,
-                               'Gene ID'=ids$ensembl_gene_id[fb.order],
-                               'Gene Symbol'=ids$flybasename_gene[fb.order])
+                               'Gene ID'=sapply(ids$ensembl_gene_id[fb.order],function(x) paste0("<a href=\"",linkOut,x,".html\">",x,"</a>")),
+                               'Gene Symbol'=ids$flybasename_gene[fb.order],
+                               'IGV'=IGV.links)
                 }, options = list(iDisplayLength = 10))
                 
             })

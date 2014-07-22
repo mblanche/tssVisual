@@ -18,12 +18,12 @@ shinyUI(fluidPage(
         mainPanel(
             div(class="test",
                 id="dataLoader",
-                h5("Loading the data, this may take a while"),
-                p("Be patient..."),
+                h5("Loading the data..."),
+                p("This may take a few moments"),
                 img(src="ajax-loader.gif")
                 ),
             div(class = "busy",  
-                p("Calculation in progress.."), 
+                p("Computation in progress..."), 
                 img(src="ajax-loader.gif")
                 ),
             tableOutput("coordinfo"),

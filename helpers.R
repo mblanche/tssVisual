@@ -127,41 +127,51 @@ plotCovs <- function(d,withTSSmarker=TRUE,yval=NULL) {
     }
 }
 
-imageTSS <- function(d,withTSSmarker=TRUE,yval) {
+## imageTSS <- function(d,withTSSmarker=TRUE,yval) {
   
-    cols <- colorRampPalette(c('black','yellow'))(256)
+##     cols <- colorRampPalette(c('black','yellow'))(256)
     
-    if(length(d) < 5){
-        ## makes all the printing region 1 in wide
-        layout(matrix(c(seq(d),rep(0,5-length(d))),ncol=5))
-    } else {
-        ## Unless, there is more than five
-        layout(matrix(seq(d),ncol=length(d)))
-    }
+##     if(length(d) < 5){
+##         ## makes all the printing region 1 in wide
+##         layout(matrix(c(seq(d),rep(0,5-length(d))),ncol=5))
+##     } else {
+##         ## Unless, there is more than five
+##         layout(matrix(seq(d),ncol=length(d)))
+##     }
     
-    mar <- par('mar')
-    mar[3] <- mar[3]+2
-    par(mar=mar)
+##     mar <- par('mar')
+##     mar[3] <- mar[3]+2
+##     par(mar=mar)
     
-    for (exps in names(d)) {
-        image(t(d[[exps]]),
-                  col=cols,
-              axes=FALSE,
-              main=exps)
-        axis(3,c(0,0.5,1),c('-500','TSS','500'))
-        ## add a horizontal colored rectangle at y-coordinates defined by click
-        max.y <- max(yval)
-        min.y <- min(yval)
+##     for (exps in names(d)) {
+##         image(t(d[[exps]]),
+##                   col=cols,
+##               axes=FALSE,
+##               main=exps)
+##         axis(3,c(0,0.5,1),c('-500','TSS','500'))
+##         ## add a horizontal colored rectangle at y-coordinates defined by click
+##         max.y <- max(yval)
+##         min.y <- min(yval)
 
-        if(!is.null(yval)){
-            if(length(yval) == 1){
-                rect(-500,as.numeric(min.y-0.003),500,(as.numeric(max.y+0.003)),col='#FF000060')
-            }
-            if(length(yval) == 2){
-                rect(-500,as.numeric(min.y),500,(as.numeric(max.y)),col='#0000FF60')
-            }
-        }
-        if (withTSSmarker)
-            abline(v=0.5,col='red',lwd=1.5,lty=2)
-    }
+##         if(!is.null(yval)){
+##             if(length(yval) == 1){
+##                 rect(-500,as.numeric(min.y-0.003),500,(as.numeric(max.y+0.003)),col='#FF000060')
+##             }
+##             if(length(yval) == 2){
+##                 rect(-500,as.numeric(min.y),500,(as.numeric(max.y)),col='#0000FF60')
+##             }
+##         }
+##         if (withTSSmarker)
+##             abline(v=0.5,col='red',lwd=1.5,lty=2)
+##     }
+## }
+
+pull_coords <- function(id,roi){
+    gnModel <- roi[id]
+    
+    IGVlinks <- sprintf('http://localhost:60151/goto?locus=%s:%s-%s',
+                        seqnames(gnModel),
+                        start(gnModel),
+                        end(gnModel))
+    return(IGVlinks)
 }
