@@ -4,8 +4,40 @@ source("helpers.R")
 source("dataLoader.R")
 
 shinyServer(function(input, output, session) {
-    ## Create a reactive that will keep tracks of ranks
-    ranks <- reactiveValues()
+
+    ## Compute the coverages along the selected ROI
+    ## [if only ROI file, don't display selector, just roll with it
+
+    ROI <- reactive({
+        if (length(ROIs) > 1){
+            output$ROIselector <- renderUI({list(
+                radioButtons('ROI','Select you Regions of Interest',names(ROIs),names(ROIs)[1]),
+                hr()
+                )
+                                        })
+            if(!is.null(input$ROI)){
+                return(ROIs[[input$ROI]])
+            } else {
+                return(NULL)
+            }
+        } else {
+            return(ROIs[[1]])
+        }
+    })
+
+    ## Create a reactive context to handle evaluation of ROI
+    ## Also, add an invisible div() that will stop the spinning wheel
+    data <- reactive({
+        if (!is.null( ROI() )){
+            data <- list(covs=cov.data,ROI=ROI())
+            data$views <- mclapply(data$covs,function(cov){
+                Views(cov,as(data$ROI,'RangesList')[names(cov)])
+            },mc.preschedule=FALSE,mc.cores=25)
+            data$Absolute <- cov2matrix(data$views,data$ROI)
+            data$Relative <- doRelative(data$Absolute)
+            return(data)
+        }
+    })
     
     ## Render a widget for selecting the sample to display
     observe ({
@@ -15,8 +47,10 @@ shinyServer(function(input, output, session) {
                 ## Render the abolute vs relative radio
                 radioButtons('analysisType','Select Coverage Type',c('Relative','Absolute')),
                 ## Render a button to add/remove TSS marker
-                checkboxInput('addTSSmarker','Display the TSS marker',TRUE),
+                checkboxInput('addCenterMarker','Display Center Marker',TRUE),
                 hr(),
+                ## Add an uiOutput do dynamicaly display ROI files if more than one
+                uiOutput('ROIselector'),
                 ## Render the sample selector
                 selectInput("samples",
                             "Choose sample(s) that will be added to the plot.\n
@@ -32,7 +66,7 @@ shinyServer(function(input, output, session) {
                 )
         })
     })
-        
+    
     ## Register the yclicks for region selection
     y.clicks <- reactiveValues(y1=NULL,y2=NULL)
     observe({
@@ -114,7 +148,7 @@ shinyServer(function(input, output, session) {
                     print(p)
                 })
                 
-                initial.df <- names(data$ROI)[selected()]
+                initial.df <- names(data()[['ROI']])[selected()]
                 fb.order <- match(initial.df,ids$ensembl_transcript_id)
                                 
                 output$table <- renderDataTable({
@@ -129,7 +163,20 @@ shinyServer(function(input, output, session) {
         }
     })
 
+    ## Create a reactive that will keep tracks of ranks
+    ranks <- reactiveValues()
+    
+    ## Set the $r slot to the initial ranks
+    observe ({
+        ## Do not react on changes to input$samples
+        samples <- names(covs)[match(input$samples,covs)]
+        if (length(samples) != 0){
+            ranks$r <- orderRank((data()[[input$analysisType]][samples[1]]))
+        }
+    })
+    
     ## Acting on clicks to the zoom button
+    ## The slot $slice is the current subset
     observe({
         input$zoom
         isolate({
@@ -160,18 +207,10 @@ shinyServer(function(input, output, session) {
     toPlot <- reactive({
         samples <- names(covs)[match(input$samples,covs)]
         if (length(samples) != 0){
-            d <- lapply(data[[input$analysisType]][samples],function(d) d[slice(),,drop=FALSE])
+            d <- lapply(data()[[input$analysisType]][samples],function(d) d[slice(),,drop=FALSE])
             d <- lapply(d,downSample)
         } else {
             return(NULL)
-        }
-    })
-    
-    observe ({
-        ## Do not react on changes to input$samples
-        samples <- names(covs)[match(input$samples,covs)]
-        if (length(samples) != 0){
-            ranks$r <- orderRank((data[[input$analysisType]][samples[1]]))
         }
     })
 
@@ -194,7 +233,7 @@ shinyServer(function(input, output, session) {
                 ## Render the plot
                 output$plot <- renderPlot({
                     plotCovs(toPlot(),
-                         input$addTSSmarker,
+                         input$addCenterMarker,
                              yval=c(y.clicks$y1,y.clicks$y2)
                              )
                     

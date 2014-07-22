@@ -3,24 +3,26 @@
 ##################################################
 source("helpers.R")
 
+##################################################
+## Read the different ROI files (GRanges objects)
+##################################################
+ROIfiles <- list.files('data','_ROI.rds$',full=TRUE)
+ROIs <- lapply(ROIfiles,readRDS)
+names(ROIs) <- sub('_ROI.rds$',"",basename(ROIfiles))
+
+##################################################
+## Read in the coverage files (RleLists of coverages)
+##################################################
 dir <- 'data/cov'
 files <- list.files(dir,"_cov\\.rds$",full=TRUE)
 covs <- structure(files,names=sub("_cov.+","",basename(files)))
 
-data <- list()
-data$covs <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
 
-names(data$covs) <- sub("_cov\\.rds","",basename(covs))
-
-data$ROI <- readRDS("data/ROI.rds")
-
-data$views <- mclapply(data$covs,function(cov){
-    Views(cov,as(data$ROI,'RangesList')[names(cov)])
-},mc.preschedule=FALSE,mc.cores=25)
-
-data$Absolute <- cov2matrix(data$views,data$ROI)
-data$Relative <- doRelative(data$Absolute)
+cov.data <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
+names(cov.data) <- sub("_cov\\.rds","",basename(covs))
 
 
-## read the ids from GRanges file
+##################################################
+## read gene information pulled from biomart (data.frame)
+##################################################
 ids <- readRDS("data/martIDs.rds")
