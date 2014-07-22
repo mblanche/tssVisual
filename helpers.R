@@ -1,8 +1,6 @@
 library(parallel)
 library(GenomicRanges)
-#library(biomaRt)
 library(ggplot2)
-
 
 ##################################################
 ## Heler functions
