@@ -23,3 +23,4 @@ setInterval(function(){
 	$('#dataLoader').hide()
     }
 }, 100)
+

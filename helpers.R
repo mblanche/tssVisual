@@ -16,6 +16,7 @@ readCovs <- function(covFeats.name){
 
 getData <- function(exps){
     d <- mclapply(exps,function(cov){
+        t <- as.list(viewApply(get(cov),as.vector))
         d <- t(do.call(cbind,as.list(viewApply(get(cov),as.vector))))
     },mc.cores=25,mc.preschedule=FALSE)
     names(d) <- exps
@@ -24,11 +25,13 @@ getData <- function(exps){
 
 cov2matrix <- function(views,ROI){
     d <- mclapply(views,function(cov){
-        d <- t(do.call(cbind,as.list(viewApply(cov,as.vector))))
+        cov.list <- as.list(viewApply(cov,as.vector))
+        d <- t(do.call(cbind,cov.list[sapply(cov.list,length) > 1]))
         ## Flip the strand if ROI is on the negative strand
+        viewApply(cov,as.vector,simplify=FALSE)
         is.neg <- as.vector(strand(ROI[unlist(lapply(cov,names))]) == '-')
         d[is.neg,] <- d[is.neg,ncol(d):1]
-        d
+        return(d)
     },mc.cores=25,mc.preschedule=FALSE)
     names(d) <- names(views)
     return(d)
@@ -36,9 +39,9 @@ cov2matrix <- function(views,ROI){
 
 
 orderRank <- function(data){
-    center <- ceiling(ncol(data[[1]])/2)
-    range <- ceiling(ncol(data[[1]])*0.05)
-    rank <- order(rowMeans(data[[1]][,(center-range):(center+range)]),decreasing=TRUE)
+    center <- ceiling(ncol(data)/2)
+    range <- ceiling(ncol(data)*0.05)
+    rank <- order(rowMeans(data[,(center-range):(center+range)]),decreasing=TRUE)
 }
 
 doRelative <- function(data) {
