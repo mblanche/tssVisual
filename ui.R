@@ -16,6 +16,7 @@ shinyUI(fluidPage(
             uiOutput("selectors")
             ),
         mainPanel(
+            textOutput("debug"),
             div(class="test",
                 id="dataLoader",
                 h5("Loading the data..."),
@@ -28,13 +29,8 @@ shinyUI(fluidPage(
                 ),
             tableOutput("coordinfo"),
             tabsetPanel(type = "tabs",
-                        tabPanel("Plot",
-                                 textOutput('text2'),
-                                 textOutput('text'),
-                                 plotOutput('plot',clickId="coords",height='800px')),
-                        tabPanel("Gene Table",
-                                 uiOutput('selectedGenes')
-                                 )
+                        tabPanel("Plot",uiOutput('plotRegion')),
+                        tabPanel("Gene Table",uiOutput('selectedGenes'))
                         )
             )
         )
