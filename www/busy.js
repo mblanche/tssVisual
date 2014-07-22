@@ -13,7 +13,6 @@ setInterval(function(){
 // The UIs is not render until the data are loaded
 // Use that to display a spinning disk
 setInterval(function(){
-    //if ($("#analysisType") == 0 | !$("#analysisType").is(":visible") ){
     if (!$("#analysisType").is(":visible") ){
 	setTimeout(function() {
 	    if (!$("#analysisType").is(":visible") ){
