@@ -5,16 +5,22 @@ source("dataLoader.R")
 
 shinyServer(function(input, output, session) {
 
-    ## Compute the coverages along the selected ROI
-    ## [if only ROI file, don't display selector, just roll with it
-
+    
+    ## Display the different ROIs (if more than one)
+    observe({
+        if(length(ROIs) > 1){
+            output$ROIselector <- renderUI({
+                list(
+                    radioButtons('ROI','Select you Regions of Interest',names(ROIs),names(ROIs)[1]),
+                    hr()
+                    )
+            })
+        }
+    })
+    
+    ## Create a ROI reactive that will return the correct ROI
     ROI <- reactive({
         if (length(ROIs) > 1){
-            output$ROIselector <- renderUI({list(
-                radioButtons('ROI','Select you Regions of Interest',names(ROIs),names(ROIs)[1]),
-                hr()
-                )
-                                        })
             if(!is.null(input$ROI)){
                 return(ROIs[[input$ROI]])
             } else {
@@ -24,7 +30,7 @@ shinyServer(function(input, output, session) {
             return(ROIs[[1]])
         }
     })
-
+    
     ## Create a reactive context to handle evaluation of ROI
     ## Also, add an invisible div() that will stop the spinning wheel
     data <- reactive({
