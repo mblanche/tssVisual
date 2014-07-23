@@ -25,17 +25,26 @@ getData <- function(exps){
 
 cov2matrix <- function(views,ROI){
     d <- mclapply(views,function(cov){
-        cov.list <- as.list(viewApply(cov,as.vector,simplify=FALSE))
+
+        cov.list <- as.list(viewApply(cov,as.vector))
+
         d <- t(do.call(cbind,cov.list[sapply(cov.list,length) > 1]))
+
         ## Flip the strand if ROI is on the negative strand
+
         is.neg <- as.vector(strand(ROI[unlist(lapply(cov,names))]) == '-')
+
         d[is.neg,] <- d[is.neg,ncol(d):1]
+
         return(d)
     },mc.cores=25,mc.preschedule=FALSE)
     names(d) <- names(views)
     return(d)
 }
 
+doRelative <- function(data) {
+    lapply(data,function(d) d/rowSums(d))
+}
 
 orderRank <- function(data){
     center <- ceiling(ncol(data)/2)
@@ -43,11 +52,12 @@ orderRank <- function(data){
     rank <- order(rowMeans(data[,(center-range):(center+range)]),decreasing=TRUE)
 }
 
-doRelative <- function(data) {
-    lapply(data,function(d) d/rowSums(d))
-}
 
 downSample <- function(d) {
+    ## Remove rows of genes that have all 0 or some na
+    d <- d[!rowSums(is.na(d))>0]
+    d <- d[!rowSums(d) == 0]
+
     ## If there is more than 400 row, downsample
     if (nrow(d) > 400){
         breaks <- cut(1:nrow(d),400,labels=FALSE)
@@ -71,24 +81,6 @@ downSample <- function(d) {
     d <- d[nrow(d):1,,drop=FALSE]
 }
 
-subData <- function(d,d.t.sub) {
-    d <- lapply(d,function(x) x[d.t.sub,])
-}
-
-
-metaPrepData <- function(d,d.t.sub) {
-    d <- lapply(d,function(x) x[d.t.sub,,drop=FALSE])
-    d <- data.frame(
-        x= as.vector(sapply(d,function(x) 1:ncol(x))),
-        y= as.vector(sapply(d, function(x) colMeans(x))),
-        Exp=rep(names(d), sapply(d,function(x) ncol(x)))
-        )
-}
-
-## prepData <- function(d, rank){
-##     d <- lapply(d,function(d.t) d.t[rank,])
-##     d <- lapply(d,downSample)
-## }
 
 plotCovs <- function(d,withTSSmarker=TRUE,yvals=NULL) {
     cols <- colorRampPalette(c('black','yellow'))(256)
@@ -119,45 +111,6 @@ plotCovs <- function(d,withTSSmarker=TRUE,yvals=NULL) {
                 rect(-500,as.numeric(min.y-0.003),500,(as.numeric(max.y+0.003)),col='#FF000060')
             }
             if(length(yvals) == 2){
-                rect(-500,as.numeric(min.y),500,(as.numeric(max.y)),col='#0000FF60')
-            }
-        }
-        if (withTSSmarker)
-            abline(v=0.5,col='red',lwd=1.5,lty=2)
-    }
-}
-
-imageTSS <- function(d,withTSSmarker=TRUE,yval) {
-  
-    cols <- colorRampPalette(c('black','yellow'))(256)
-    
-    if(length(d) < 5){
-        ## makes all the printing region 1 in wide
-        layout(matrix(c(seq(d),rep(0,5-length(d))),ncol=5))
-    } else {
-        ## Unless, there is more than five
-        layout(matrix(seq(d),ncol=length(d)))
-    }
-    
-    mar <- par('mar')
-    mar[3] <- mar[3]+2
-    par(mar=mar)
-    
-    for (exps in names(d)) {
-        image(t(d[[exps]]),
-                  col=cols,
-              axes=FALSE,
-              main=exps)
-        axis(3,c(0,0.5,1),c('-500','TSS','500'))
-        ## add a horizontal colored rectangle at y-coordinates defined by click
-        max.y <- max(yval)
-        min.y <- min(yval)
-
-        if(!is.null(yval)){
-            if(length(yval) == 1){
-                rect(-500,as.numeric(min.y-0.003),500,(as.numeric(max.y+0.003)),col='#FF000060')
-            }
-            if(length(yval) == 2){
                 rect(-500,as.numeric(min.y),500,(as.numeric(max.y)),col='#0000FF60')
             }
         }
