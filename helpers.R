@@ -25,10 +25,9 @@ getData <- function(exps){
 
 cov2matrix <- function(views,ROI){
     d <- mclapply(views,function(cov){
-        cov.list <- as.list(viewApply(cov,as.vector))
+        cov.list <- as.list(viewApply(cov,as.vector,simplify=FALSE))
         d <- t(do.call(cbind,cov.list[sapply(cov.list,length) > 1]))
         ## Flip the strand if ROI is on the negative strand
-        viewApply(cov,as.vector,simplify=FALSE)
         is.neg <- as.vector(strand(ROI[unlist(lapply(cov,names))]) == '-')
         d[is.neg,] <- d[is.neg,ncol(d):1]
         return(d)
@@ -91,7 +90,7 @@ metaPrepData <- function(d,d.t.sub) {
 ##     d <- lapply(d,downSample)
 ## }
 
-plotCovs <- function(d,withTSSmarker=TRUE,yval=NULL) {
+plotCovs <- function(d,withTSSmarker=TRUE,yvals=NULL) {
     cols <- colorRampPalette(c('black','yellow'))(256)
 
     if(length(d) < 5){
@@ -113,13 +112,13 @@ plotCovs <- function(d,withTSSmarker=TRUE,yval=NULL) {
               main=exp)
         axis(3,c(0,0.5,1),c('-500','TSS','500'))
         ## add a horizontal colored line at y-coordinates defined by click
-        if(!is.null(yval)){
-            max.y <- max(yval)
-            min.y <- min(yval)
-            if(length(yval) == 1){
+        if(!is.null(yvals)){
+            max.y <- max(yvals)
+            min.y <- min(yvals)
+            if(length(yvals) == 1){
                 rect(-500,as.numeric(min.y-0.003),500,(as.numeric(max.y+0.003)),col='#FF000060')
             }
-            if(length(yval) == 2){
+            if(length(yvals) == 2){
                 rect(-500,as.numeric(min.y),500,(as.numeric(max.y)),col='#0000FF60')
             }
         }

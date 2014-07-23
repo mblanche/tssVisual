@@ -1,10 +1,15 @@
-library(shiny)
+library(shinyIncubator)
 
-source("helpers.R")
-source("dataLoader.R")
+loading.time <- system.time({
+    source("helpers.R")
+    source("dataLoader.R")
+})
+
 
 shinyServer(function(input, output, session) {
 
+    output$debug <- renderText({ paste("Loading Time was",round(loading.time[3],2),"seconds") })
+    
     ROI <- function() ROIs$TSS
     
     ## ## Create a ROI reactive that will return the correct ROI
@@ -66,7 +71,7 @@ shinyServer(function(input, output, session) {
                                 covs,
                                 multiple=TRUE),
                     ## The computation is quite extensive, plot on click only...
-                    actionButton("goButton","Plot coverages", icon = icon("bar-chart-o")),
+                    actionButton("goButton","Plot Coverages", icon = icon("bar-chart-o")),
                     p(),
                     actionButton('zoom','Zoom',icon=icon('search-plus')),
                     actionButton('resetZoom','Reset Zoom',icon=icon('refresh')),
@@ -102,7 +107,7 @@ shinyServer(function(input, output, session) {
             })
         }
     })
-
+    
     ## Figure out the rows from the original data that makes the selection
     selected <- reactive({
         ## make sure we react only when both clicks are registerd
@@ -127,11 +132,6 @@ shinyServer(function(input, output, session) {
         }
     })
 
-
-    ## Create a reactive that will keep tracks of ranks
-    ranks <- reactiveValues()
-
-
     ## Create a reative values to reset the ranks when the ROI changes
     observe ({
         input$ROI
@@ -139,21 +139,45 @@ shinyServer(function(input, output, session) {
             ranks <- NULL
         })
     })
-    
+
+    ## Which data are we ploting
+    ## Triggers only upon click to the plotting button
+    data <- reactive({
+        ## Isolate on to plot click and changes in Rel/Abs
+        input$goButton
+        input$analysisType
+        isolate ({
+            ## Make sure the data are loaded before trying to compute
+            if(
+                !(
+                    length(input$samples) == 0 |
+                    is.null(input$analysisType) |
+                    is.null(Relative()) |
+                    is.null(Absolute())
+                    )
+                ){
+                samples <- names(covs)[match(input$samples,covs)]
+                d <- switch(input$analysisType,
+                            Relative = Relative(),
+                            Absolute = Absolute())
+                return(d[samples])
+            } else {
+                return(NULL)
+            }
+        })
+    })
+
+    ## Create a reactive that will keep tracks of ranks
+    ranks <- reactiveValues()
     ## Set the $r slot to the initial ranks
     observe({
-        if (!is.null(input$analysisType) & length(input$samples) != 0){
-            d <- switch(input$analysisType,
-                        Relative = Relative(),
-                        Absolute = Absolute())
-            sample2sort <- names(covs)[match(input$samples,covs)]
-            ranks$r <- orderRank(d[[sample2sort]])
+        if (!is.null(data()) ){
+            ranks$r <- orderRank(data()[[1]])
         } else {
             ranks$r <- NULL
         }
     })
-            
-    
+        
     ## Returning which slices is active
     slice <- reactive({
         if(is.null(ranks$r)){
@@ -194,14 +218,20 @@ shinyServer(function(input, output, session) {
     })
     
     ## Preparing the data needing to be ploted
+    ## Need to play isolation... as it keeps getting recomputed every time a sample changes
     toPlot <- reactive({
-        if(!is.null(slice())){
-                samples <- names(covs)[match(input$samples,covs)]
-                d <- switch(input$analysisType,
-                            Relative = Relative(),
-                            Absolute = Absolute())
-                d <- lapply(d[samples],function(d) d[slice(),,drop=FALSE])
+        s <- slice()
+        d <- data()
+        if(!is.null(s) & !is.null(d)){
+            withProgress(session, {
+                setProgress(message = 'Computing the data', detail = "Will take a few seconds")
+                setProgress(value = 0.1 )
+                d <- lapply(d,function(d) d[slice(),,drop=FALSE])
+                setProgress(value = 0.5 )
                 d <- lapply(d,downSample)
+                setProgress(value = 1 )
+                return(d)
+            })
         } else {
             return(NULL)
         }
@@ -209,96 +239,88 @@ shinyServer(function(input, output, session) {
 
     ## Render the TSS plots
     observe ({
-        ## Recompute on clicks or on changes of ROIs
-        input$goButton
-        ## Render a plotUI with variable width, then plot
-        isolate({
-            if (!is.null( toPlot() )){
-                ## Got data to plot, render the plotting UI
-                output$plotRegion <- renderUI(list(
-                textOutput('text2'),
-                    h5(textOutput('text')),
-                    plotOutput('plot',clickId="coords",height='800px')
-                    ))
-                ## Render the plot
-                output$plot <- renderPlot({
-                    plotCovs(toPlot(),
-                             input$addCenterMarker,
-                             yval=c(y.clicks$y1,y.clicks$y2)
-                             )
-                    
-                })
-            }
-        })
+        ## Make sure we have something to plot first
+        if ( !is.null( toPlot() ) ){
+            ## Render the plot
+            output$plot <- renderPlot({
+                plotCovs(toPlot(),
+                         input$addCenterMarker,
+                         yvals=c(y.clicks$y1,y.clicks$y2))
+            })
+        } 
     })
 
-    ## Create a reactive content to display
-    ## Ben's messages on what to do with the clicks act on
-    observe({
-        if (is.null(y.clicks$y1)){
-            output$text <- renderText('Click the plot to select your initial boundary region')
-        }
-        else if (is.null(y.clicks$y2)){
-            output$text <- renderText('Click to finish highlighting your region of interest')
-        }
-        else {
-            output$text <- renderText('The genes from region you have selected are now available!')
-        }
-    })
+
+
     
-    ## Create a reactive context to whipe out the ploting region when there is noghing to plot
-    observe({
-        if(is.null(toPlot()))
-            output$plotRegion <- renderUI(return(NULL))
-    })
+    
+    ## ## Create a reactive content to display
+    ## ## Ben's messages on what to do with the clicks act on
+    ## observe({
+    ##     if (is.null(y.clicks$y1)){
+    ##         output$text <- renderText('Click the plot to select your initial boundary region')
+    ##     }
+    ##     else if (is.null(y.clicks$y2)){
+    ##         output$text <- renderText('Click to finish highlighting your region of interest')
+    ##     }
+    ##     else {
+    ##         output$text <- renderText('The genes from region you have selected are now available!')
+    ##     }
+    ## })
+    
+    ## ## Create a reactive context to whipe out the ploting region when there is noghing to plot
+    ## observe({
+    ##     if(is.null(toPlot())) 
+    ##         output$plotRegion <- renderUI(return(NULL))
+    ## })
 
 
-    ## Rendering the content of the Gene Table panel
-    ## I think this block as to be looked over to make sure we don't process it for no good reason...
-    observe({
-        #& !is.null(selected())
-        if(!is.null(y.clicks$y2)){
-            ## Ok, I have a selection, I will render a UI to create a plot and a dataTable
-            output$selectedGenes <- renderUI({
-                list(plotOutput('metaplot'),
-                     dataTableOutput('table'))
-            })
-            ## Then, I will populate with some data
-            isolate({
-                y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
-                ## Making sure that the clicks stay within the boundaries of the plot
-                if (y.vals[1] < 0) y.vals[1] <- 1e-6
-                if (y.vals[2] > 1) y.vals[2] <- 1
+    ## ## Rendering the content of the Gene Table panel
+    ## ## I think this block as to be looked over to make sure we don't process it for no good reason...
+    ## observe({
+    ##     #& !is.null(selected())
+    ##     if(!is.null(y.clicks$y2)){
+    ##         ## Ok, I have a selection, I will render a UI to create a plot and a dataTable
+    ##         output$selectedGenes <- renderUI({
+    ##             list(plotOutput('metaplot'),
+    ##                  dataTableOutput('table'))
+    ##         })
+    ##         ## Then, I will populate with some data
+    ##         isolate({
+    ##             y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
+    ##             ## Making sure that the clicks stay within the boundaries of the plot
+    ##             if (y.vals[1] < 0) y.vals[1] <- 1e-6
+    ##             if (y.vals[2] > 1) y.vals[2] <- 1
 
-                ## Compute which row to keep
-                range <- ceiling(nrow(toPlot()[[1]]) * y.vals)
+    ##             ## Compute which row to keep
+    ##             range <- ceiling(nrow(toPlot()[[1]]) * y.vals)
 
-                ## Massage the data for ggplot
-                d.f <- data.frame(x=unlist(lapply(toPlot(),function(x) seq(ncol(x)))),
-                                  y=unlist(lapply(toPlot(),function(d) colMeans(d[range[1]:range[2],,drop=FALSE]))),
-                                  Exp=rep(names(toPlot()),each=sapply(toPlot(),ncol)))
+    ##             ## Massage the data for ggplot
+    ##             d.f <- data.frame(x=unlist(lapply(toPlot(),function(x) seq(ncol(x)))),
+    ##                               y=unlist(lapply(toPlot(),function(d) colMeans(d[range[1]:range[2],,drop=FALSE]))),
+    ##                               Exp=rep(names(toPlot()),each=sapply(toPlot(),ncol)))
 
-                ## Render the plot
-                output$metaplot <- renderPlot({
-                    p <- ggplot(d.f,aes(x,y,colour=Exp)) 
-                    p <- p+geom_line()+labs(x="Position",y="Coverage")
-                    print(p)
-                })
+    ##             ## Render the plot
+    ##             output$metaplot <- renderPlot({
+    ##                 p <- ggplot(d.f,aes(x,y,colour=Exp)) 
+    ##                 p <- p+geom_line()+labs(x="Position",y="Coverage")
+    ##                 print(p)
+    ##             })
                 
-                initial.df <- names(ROI())[selected()]
-                fb.order <- match(initial.df,ids$ensembl_transcript_id)
+    ##             initial.df <- names(ROI())[selected()]
+    ##             fb.order <- match(initial.df,ids$ensembl_transcript_id)
                                 
-                output$table <- renderDataTable({
-                    data.frame(Name=initial.df,
-                               'Gene ID'=ids$ensembl_gene_id[fb.order],
-                               'Gene Symbol'=ids$flybasename_gene[fb.order])
-                }, options = list(iDisplayLength = 10))
+    ##             output$table <- renderDataTable({
+    ##                 data.frame(Name=initial.df,
+    ##                            'Gene ID'=ids$ensembl_gene_id[fb.order],
+    ##                            'Gene Symbol'=ids$flybasename_gene[fb.order])
+    ##             }, options = list(iDisplayLength = 10))
                 
-            })
-        } else {
-            output$selectedGenes <- renderUI(NULL)
-        }
-    })
+    ##         })
+    ##     } else {
+    ##         output$selectedGenes <- renderUI(h4("You need to select a region of the plot first",style="color:red"))
+    ##     }
+    ## })
 
 
 })    

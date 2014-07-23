@@ -1,8 +1,9 @@
-#library(shinyIncubator)
-library(shiny)
+library(shinyIncubator)
+
 
 ## ui.R
 shinyUI(fluidPage(
+    progressInit(),
     tagList(
         tags$head(
             tags$link(rel="stylesheet", type="text/css",href="style.css"),
@@ -29,7 +30,11 @@ shinyUI(fluidPage(
                 ),
             tableOutput("coordinfo"),
             tabsetPanel(type = "tabs",
-                        tabPanel("Plot",uiOutput('plotRegion')),
+                        tabPanel("Plot",
+                                 textOutput('text2'),
+                                 h5(textOutput('text')),
+                                 plotOutput('plot',clickId="coords",height='800px')
+                                 ),
                         tabPanel("Gene Table",uiOutput('selectedGenes'))
                         )
             )
