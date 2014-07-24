@@ -99,21 +99,31 @@ mclapply(names(ROI.cov),function(n) saveRDS(ROI.cov[[n]],file.path('data',paste0
          mc.preschedule=FALSE,
          mc.cores=25)
 
+##################################################
+### Maybe it might make more sense to save it as RleViewList
+### if the ROI don't change...
+##################################################
+ROI <- readRDS("data/ROI.rds")
+
+dir <- 'data/cov'
+files <- list.files(dir,"_cov\\.rds$",full=TRUE)
+covs <- structure(files,names=sub("_cov.+","",basename(files)))
 
 
+cov.data <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
+names(cov.data) <- sub("_cov\\.rds","",basename(covs))
 
+view.dir <- "data/views"
+dir.create(view.dir,FALSE,TRUE)
 
-names(covs)[[1]]
-
-gr <- ROI[1]
-
-t <- Views(covs[[1]],as(gr,'RangesList')[names(covs[[1]])])
-t[elementLengths(t) != 0][[1]]
-
-
-bw.f <- list.files("bigwig",names(covs)[[1]],full=TRUE)
-
-cov <- import(bw.f)
-
-
-              , which=gr, as=“RleList”)
+ROI.rl <- as(ROI,'RangesList')
+sss <- mclapply(names(cov.data), function(cov.n){
+    cov <- cov.data[[cov.n]]
+    ## Remove the slots not in ROI.rl
+    common.chr <- intersect(names(cov),names(ROI.rl))
+    cov <- cov[common.chr]
+    ROI.rl <- ROI.rl[common.chr]
+    ## Then, order the slots in both
+    ROI.rl.sub <- ROI.rl[names(cov)[match(names(ROI.rl),names(cov))]]
+    saveRDS(Views(cov,ROI.rl.sub),file.path(view.dir,paste0(cov.n,"_view.rds")))
+},mc.preschedule=FALSE,mc.cores=25)

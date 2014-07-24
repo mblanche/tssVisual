@@ -7,19 +7,28 @@ source("helpers.R")
 ## Read the different ROI files (GRanges objects)
 ##################################################
 ROIfiles <- list.files('data','_ROI.rds$',full=TRUE)
-ROIs <- lapply(ROIfiles,readRDS)
-names(ROIs) <- sub('_ROI.rds$',"",basename(ROIfiles))
+ROI <- readRDS('data/ROI.rds')
+
 
 ##################################################
 ## Read in the coverage files (RleLists of coverages)
 ##################################################
-dir <- 'data/cov'
-files <- list.files(dir,"_cov\\.rds$",full=TRUE)
-covs <- structure(files,names=sub("_cov.+","",basename(files)))
+## dir <- 'data/cov'
+## files <- list.files(dir,"_cov\\.rds$",full=TRUE)
+## covs <- structure(files,names=sub("_cov.+","",basename(files)))
 
+## cov.data <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
+## names(cov.data) <- sub("_cov\\.rds","",basename(covs))
 
-cov.data <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
-names(cov.data) <- sub("_cov\\.rds","",basename(covs))
+dir <- 'data/views'
+files <- list.files(dir,"_view\\.rds$",full=TRUE)
+views <- structure(files,names=sub("_view.rds$","",basename(files)))
+Absolute <- mclapply(views,function(file,ROI){
+        view <- readRDS(file)
+        doAbsolute(view,ROI)
+    },ROI=ROI,mc.cores=25,mc.preschedule=FALSE)
+Relative <- mclapply(Absolute,doRelative,mc.cores=25,mc.preschedule=FALSE)
+names(Absolute) <- names(Relative) <- names(views)
 
 
 ##################################################

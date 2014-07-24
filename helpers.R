@@ -5,46 +5,21 @@ library(ggplot2)
 ##################################################
 ## Heler functions
 ##################################################
-readCovs <- function(covFeats.name){
-    newCovs <- covFeats.name[!sub("_cov.+","",basename(covFeats.name)) %in% ls()]
-    if (length(newCovs) == 0) return()
-    for (file in newCovs){
-        var.name <- sub("_cov.+","",basename(file))
-        assign(var.name,readRDS(file),envir=globalenv())
-    }
-}
 
-getData <- function(exps){
-    d <- mclapply(exps,function(cov){
-        t <- as.list(viewApply(get(cov),as.vector))
-        d <- t(do.call(cbind,as.list(viewApply(get(cov),as.vector))))
-    },mc.cores=25,mc.preschedule=FALSE)
-    names(d) <- exps
+doAbsolute <- function(view,ROI) {
+    cov.list <- as.list(viewApply(view,as.vector))
+    d <- t(do.call(cbind,cov.list[sapply(cov.list,length) > 1]))
+    ## Flip the strand if ROI is on the negative strand
+    is.neg <- as.vector(strand(ROI[unlist(lapply(cov,names))]) == '-')
+    d[is.neg,] <- d[is.neg,ncol(d):1]
     return(d)
 }
 
-cov2matrix <- function(views,ROI){
-    d <- mclapply(views,function(cov){
-
-        cov.list <- as.list(viewApply(cov,as.vector))
-
-        d <- t(do.call(cbind,cov.list[sapply(cov.list,length) > 1]))
-
-        ## Flip the strand if ROI is on the negative strand
-
-        is.neg <- as.vector(strand(ROI[unlist(lapply(cov,names))]) == '-')
-
-        d[is.neg,] <- d[is.neg,ncol(d):1]
-
-        return(d)
-    },mc.cores=25,mc.preschedule=FALSE)
-    names(d) <- names(views)
-    return(d)
-}
 
 doRelative <- function(data) {
-    lapply(data,function(d) d/rowSums(d))
+   data/rowSums(data)
 }
+
 
 orderRank <- function(data){
     center <- ceiling(ncol(data)/2)
@@ -52,12 +27,10 @@ orderRank <- function(data){
     rank <- order(rowMeans(data[,(center-range):(center+range)]),decreasing=TRUE)
 }
 
-
 downSample <- function(d) {
-    ## Remove rows of genes that have all 0 or some na
-    d <- d[!rowSums(is.na(d))>0]
-    d <- d[!rowSums(d) == 0]
-
+    ## Remove any rows with Na
+    d <- d[!rowSums(is.na(d)) > 0,]
+    
     ## If there is more than 400 row, downsample
     if (nrow(d) > 400){
         breaks <- cut(1:nrow(d),400,labels=FALSE)
@@ -80,7 +53,6 @@ downSample <- function(d) {
     ## the 0,0 is bottom left, I want to print from top left, reverse the rows
     d <- d[nrow(d):1,,drop=FALSE]
 }
-
 
 plotCovs <- function(d,withTSSmarker=TRUE,yvals=NULL) {
     cols <- colorRampPalette(c('black','yellow'))(256)

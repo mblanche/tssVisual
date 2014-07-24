@@ -1,5 +1,5 @@
 library(shinyIncubator)
-
+#library(shiny)
 
 ## ui.R
 shinyUI(fluidPage(
@@ -20,7 +20,7 @@ shinyUI(fluidPage(
             textOutput("debug"),
             div(class="test",
                 id="dataLoader",
-                h5("Loading the data, this may take a while"),
+                h5("Loading and processing the data, this may take a while"),
                 p("Be patient..."),
                 img(src="ajax-loader.gif")
                 ),
