@@ -5,6 +5,8 @@ loading.time <- system.time({
     source("dataLoader.R")
 })
 
+## Testing branching
+
 shinyServer(function(input, output, session) {
 
     ## Render a widget for selecting the sample to display
