@@ -90,3 +90,40 @@ plotCovs <- function(d,withTSSmarker=TRUE,yvals=NULL) {
             abline(v=0.5,col='red',lwd=1.5,lty=2)
     }
 }
+
+metaPlot <- function(data.list){
+        ## Downsample the number of column, applying average smoothing
+        d <- lapply(data.list,function(d){
+            breaks <- split(seq(ncol(d)),cut(seq(ncol(d)),breaks=100,labels=FALSE))
+            sapply(breaks,function(b) rowMeans(d[,b]))
+        })
+        
+        ## Massage the data for ggplot
+        d.f <- data.frame(x=unlist(lapply(d,function(x) seq(ncol(x)))),
+                          y=unlist(lapply(d,colMeans)),
+                          exp=rep(names(d),sapply(d,ncol))
+                          )
+        
+        p <- ggplot(d.f,aes(x,y,colour=exp)) 
+        p+geom_line()+labs(x="Position",y="Coverage")
+    }
+
+
+addIGVLink <- function(gnModel){
+    if(class(gnModel) == 'GRangesList'){
+        gene.ids <- names(gnModel)
+        gnModel <- unlist(range(gnModel))
+        names(gnModel) <- gene.ids
+    }
+    IGVlinks <- sprintf('http://localhost:60151/goto?locus=%s:%s-%s',
+                        seqnames(gnModel),
+                        start(gnModel),
+                        end(gnModel)
+                        )
+    hwrite("IGV",link = IGVlinks,target="toIGV", table = FALSE)
+}
+
+
+addlinkOut <- function(){
+
+}

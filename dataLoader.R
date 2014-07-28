@@ -2,6 +2,7 @@
 ## load the data
 ##################################################
 source("helpers.R")
+library(BSgenome.Dmelanogaster.BDGP5.73)
 
 ##################################################
 ## Read the different ROI files (GRanges objects)
@@ -35,3 +36,11 @@ names(Absolute) <- names(Relative) <- names(views)
 ## read gene information pulled from biomart (data.frame)
 ##################################################
 ids <- readRDS("data/martIDs.rds")
+linkout <- readLines("data/linkout.txt")
+
+
+##################################################
+## Computing the sequences under the ROI
+##################################################
+DNA <- getSeq(BSgenome.Dmelanogaster.BDGP5.73,ROI)
+names(DNA) <- names(ROI)

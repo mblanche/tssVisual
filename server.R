@@ -1,4 +1,5 @@
 library(shinyIncubator)
+library(hwriter)
 
 loading.time <- system.time({
     source("helpers.R")
@@ -209,5 +210,116 @@ shinyServer(function(input, output, session) {
             output$plot <- renderPlot(NULL)
         }
     })
+
+
+
+    slicedToPlot <- reactive({
+        data <- toPlot()
+        if(!is.null(y.clicks$y2)){
+            isolate({
+                y.vals <- sort(c(y.clicks$y1,y.clicks$y2))
+                ## Making sure that the clicks stay within the boundaries of the plot
+                if (y.vals[1] < 0) y.vals[1] <- 1e-6
+                if (y.vals[2] > 1) y.vals[2] <- 1
+                ## Compute which row to keep
+                range <- ceiling(nrow(data[[1]]) * y.vals)
+                lapply(data,function(d) d[range,,drop=FALSE])
+            })
+        } else {
+            return(NULL)
+        }
+    })
     
+    
+    gene.list <- reactive({
+        t <- data.frame(Gene=ids$external_gene[match(names(ROI[slice()]),ids$ensembl_transcript)],
+                        Transcript=ids$external_transcript[match(names(ROI[slice()]),ids$ensembl_transcript)],
+                        ensembl.id = ids$ensembl_gene[match(names(ROI[slice()]),ids$ensembl_transcript)],
+                        stringsAsFactors=FALSE)
+        t$linkOut <- hwrite(t$Gene,link=paste0(linkout,t$ensembl.id),target='out',table=FALSE)
+        t$'To IGV' <- addIGVLink(ROI[slice()])
+        return(t)
+    })
+
+    ## Render the content of the Gene Table tabset
+    observe({
+        if(!is.null(selected())) {
+            ## Render place holders for a plot and a table
+            output$selectedGenes <- renderUI({
+                list(plotOutput('metaplot'),
+                     downloadButton('saveMetaPlot','Save as pdf'),
+                     p(),
+                     hr(),
+                     dataTableOutput('table'),
+                     p("* In order to have the IGV link working, you need
+                          to have IGV running first and populated with your data"),
+                     downloadButton('saveCSV','Save as CSV'),
+                     downloadButton('saveSeq','Save as FASTA')
+                     )
+            })
+            
+            ## Computing the slice of data to be process
+            data.list <- lapply(data(),function(x) x[selected(),])
+
+            ## Printing meta-plot coverage
+            output$metaplot <- renderPlot(print(metaPlot(data.list)))
+
+            ## Getting the table of genes to be rendered
+            table2render <- gene.list()[,c('linkOut','Transcript','To IGV')]
+            colnames(table2render)[1] <- 'Gene'
+            output$table <- renderDataTable(table2render,options=list(iDisplayLength = 10))
+            
+        } else {
+            output$selectedGenes <- renderUI(h4("You need to select a region of the plot first",
+                                                style="color:red"))
+        }
+    })
+    
+    ## Function to download the heatmap as png
+    output$saveHeatMap <- downloadHandler(
+        filename = function() { "heatmap.png" },
+        content = function(file) {
+            png(file)
+            isolate({ plotCovs(toPlot(),FALSE) })
+            dev.off()
+        }
+        )
+    
+    
+    ## Function to download the heatmap as png
+    output$saveMetaPlot <- downloadHandler(
+        filename = function() { "metaPlot.pdf" },
+        content = function(file) {
+            pdf(file)
+            isolate({
+                data.list <- lapply(data(),function(x) x[selected(),])
+                print(metaPlot(data.list))
+            })
+            dev.off()
+        }
+        )
+    
+
+    ## Function to download the ROI as DNA sequences
+    output$saveCSV <- downloadHandler(
+        filename = function() { "geneList.csv" },
+        content = function(file) {
+            isolate({
+                write.csv(gene.list()[,c('Gene','Transcript')],file=file)
+            })
+        }
+        )
+
+    ## Function to download the ROI as DNA sequences
+    output$saveSeq <- downloadHandler(
+        filename = function() { "selectedRegion.fa" },
+        content = function(file) {
+            isolate({
+                dna <- DNA[selected()]
+                names(dna) <- gene.list()$Transcript[selected()]
+                writeXStringSet(dna,file)
+            })
+        }
+        )
+
 })    

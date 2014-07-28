@@ -58,14 +58,6 @@ BFL.chip <- BamFileList(list.files("/home/mab/genomic_analysis/Conaway/Theo/Chip
 covs <- bams2Covs(BFL.chip,lib.strand='none',nCores=25)
 
 ##################################################
-### save coverages as bigwigs
-##################################################
-dir.create("./bigwig",FALSE,TRUE)
-mclapply(names(covs),function(exp){
-    export(as(covs[[exp]],"GRanges"),file.path("bigwig",paste0(exp,".bw")))
-},mc.cores=25,mc.preschedule=TRUE)
-
-##################################################
 ### save coverages as RDS (need to find the most
 ### Effective way to process data
 ##################################################
@@ -76,54 +68,14 @@ mclapply(names(covs),function(exp){
 
 
 ##################################################
-### How fast do we read these
+### Save an id to symbol file
 ##################################################
-files <- list.files("data/cov","_cov\\.rds$",full=TRUE)
-system.time({
-    covs <- mclapply(files,readRDS,mc.cores=25,mc.preschedule=FALSE)
-})
-names(covs) <- sub("_cov\\.rds","",basename(files))
+library(biomaRt)
 
-##################################################
-## Recover an RLEViewList of the coverage
-## around the ROI for every bam files
-##################################################
-ROI.cov <- mclapply(covs,function(cov) Views(cov,as(ROI,'RangesList')[names(cov)]),mc.preschedule=FALSE,mc.cores=25)
+atts <- c("ensembl_transcript_id",
+          "ensembl_gene_id",
+          "external_gene_id",
+          "external_transcript_id")
 
-##################################################
-## Save each individual coverages in its own RDS
-## Will see if this make sense in the later run...
-##################################################
-dir.create('data',FALSE,TRUE)
-mclapply(names(ROI.cov),function(n) saveRDS(ROI.cov[[n]],file.path('data',paste0(n,"_covFeats.rds"))),
-         mc.preschedule=FALSE,
-         mc.cores=25)
-
-##################################################
-### Maybe it might make more sense to save it as RleViewList
-### if the ROI don't change...
-##################################################
-ROI <- readRDS("data/ROI.rds")
-
-dir <- 'data/cov'
-files <- list.files(dir,"_cov\\.rds$",full=TRUE)
-covs <- structure(files,names=sub("_cov.+","",basename(files)))
-
-
-cov.data <- mclapply(covs,readRDS,mc.cores=25,mc.preschedule=FALSE)
-names(cov.data) <- sub("_cov\\.rds","",basename(covs))
-
-view.dir <- "data/views"
-dir.create(view.dir,FALSE,TRUE)
-
-ROI.rl <- as(ROI,'RangesList')
-sss <- mclapply(names(cov.data), function(cov.n){
-    cov <- cov.data[[cov.n]]
-    ## Remove the slots not in ROI.rl
-    common.chr <- intersect(names(cov),names(ROI.rl))
-    cov <- cov[common.chr]
-    ROI.rl <- ROI.rl[common.chr]
-    ## Then, order the slots in both
-    ROI.rl.sub <- ROI.rl[names(cov)[match(names(ROI.rl),names(cov))]]
-    saveRDS(Views(cov,ROI.rl.sub),file.path(view.dir,paste0(cov.n,"_view.rds")))
-},mc.preschedule=FALSE,mc.cores=25)
+idsTable <- getBM(mart=mart,att=atts)
+saveRDS(idsTable,"data/martIDs.rds")
